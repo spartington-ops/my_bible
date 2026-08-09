@@ -862,6 +862,14 @@ class BibleView extends obsidian.ItemView {
   }
 
   setupTooltipDelegation(container, level) {
+    // GUARD: setupTooltipDelegation is called every render on the same container
+    // element. container.empty() removes children but NOT the listeners attached
+    // to the container itself. Without this guard, each render added another
+    // set of click/mouseover/mouseout listeners, causing every click to fire N
+    // times after N renders (especially visible on translation switch).
+    if (container.dataset.mbDelegated === "true") return;
+    container.dataset.mbDelegated = "true";
+
     let currentHoverNum = null, currentHoverChap = null;
 
     container.addEventListener("click", (e) => {
@@ -928,32 +936,54 @@ class BibleView extends obsidian.ItemView {
   }
 
   async renderView() {
-    this.contentEl.empty();
-    this.crPanes = [];
-    
+    // CRITICAL: don't unconditionally contentEl.empty() — that wipes open
+    // cross-reference panes too. Only the main reader's wrapper needs to
+    // be cleared on re-render. Cross-ref panes survive translation switches,
+    // settings changes, etc.
+    const oldMode = this._renderedViewMode;
+    if (oldMode !== this.viewMode) {
+      // Mode change (e.g., dashboard → reader): full reset, including panes.
+      this.contentEl.empty();
+      this.crPanes = [];
+      this.bookContexts = {};
+      this.selectedVerses = [];
+    } else if (oldMode === "reader") {
+      // Same mode re-render (translation switch, settings): only clear the
+      // main reader wrapper, leave crPanes alone. Each pane re-renders its
+      // own content via its own translation-change handler.
+      const mainWrapper = this.contentEl.querySelector('.main-bible-wrapper');
+      if (mainWrapper) mainWrapper.empty();
+      // bookContexts[0] is the main reader's context; clear it.
+      delete this.bookContexts[0];
+      this.selectedVerses = [];
+    }
+
     this.contentEl.style.display = "flex";
     this.contentEl.style.flexDirection = "column";
     this.contentEl.style.overflow = "hidden";
     this.contentEl.style.padding = "0";
-    this.contentEl.style.position = "relative"; 
+    this.contentEl.style.position = "relative";
 
     this.containerEl.classList.add("mb-native-integration");
     this.updateHeaderUI();
-    
-    this.layoutContainer = this.contentEl.createDiv({ cls: "main-layout-container" });
-    const wrapperClasses = ["bible-wrapper", "main-bible-wrapper"];
-    if (!this.settings.showFootnoteMarkers) wrapperClasses.push("hide-footnotes");
-    
-    const wrapper = this.layoutContainer.createDiv({ cls: wrapperClasses.join(" "), attr: { 'data-level': "0" } });
+
+    this.layoutContainer = this.contentEl.querySelector(".main-layout-container") || this.contentEl.createDiv({ cls: "main-layout-container" });
+    if (!this.layoutContainer.querySelector('.main-bible-wrapper')) {
+      const wrapperClasses = ["bible-wrapper", "main-bible-wrapper"];
+      if (!this.settings.showFootnoteMarkers) wrapperClasses.push("hide-footnotes");
+      const wrapper = this.layoutContainer.createDiv({ cls: wrapperClasses.join(" "), attr: { 'data-level': "0" } });
+    }
 
     if (this.chapterObserver) this.chapterObserver.disconnect();
 
+    this._renderedViewMode = this.viewMode;
+
     if (this.viewMode === "dashboard") {
-      this.renderDashboard(wrapper);
+      this.renderDashboard(this.layoutContainer.querySelector('.main-bible-wrapper'));
     } else if (this.viewMode === "chapters") {
-      await this.renderChapterSelector(wrapper);
+      await this.renderChapterSelector(this.layoutContainer.querySelector('.main-bible-wrapper'));
     } else if (this.viewMode === "reader") {
-      await this.renderBookIntoContainer(this.activeBook, this.currentTranslation, wrapper, this.targetScrollChapter, this.targetScrollVerse, null, null, 0);
+      await this.renderBookIntoContainer(this.activeBook, this.currentTranslation, this.layoutContainer.querySelector('.main-bible-wrapper'), this.targetScrollChapter, this.targetScrollVerse, null, null, 0);
       this.targetScrollChapter = null;
       this.targetScrollVerse = null;
     }
