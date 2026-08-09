@@ -637,7 +637,11 @@ class BibleView extends obsidian.ItemView {
 
   updateWindowing(activeChStr, container, level) {
       const context = this.bookContexts[level];
-      if (!context) return;
+      if (!context) {
+        console.log('[BIBLE-DEBUG] updateWindowing early-return: no context for level', { level, activeChStr, keys: Object.keys(this.bookContexts) });
+        return;
+      }
+      console.log('[BIBLE-DEBUG] updateWindowing start', { activeChStr, level, hasContext: true, contextBook: context.book, contextChapCount: Object.keys(context.data.chapters || {}).length });
 
       const active = parseInt(activeChStr, 10);
       const windowRange = [active-2, active-1, active, active+1, active+2];
