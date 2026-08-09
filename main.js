@@ -521,21 +521,20 @@ class BibleView extends obsidian.ItemView {
           const chapVerseCount = chapEl.querySelectorAll('.verse').length;
           console.log('[BIBLE-DEBUG] scrollToVerse verse lookup', { verse, targetNum, verseElFound: !!verseEl, chapHTMLLen, chapVerseCount, chapHydrated: chapEl.getAttribute('data-hydrated') });
 
-          // If verse not found but chapter wrapper has content but no verses,
-          // OR wrapper has data-hydrated="false", the chapter may still be
-          // hydrating. Wait one more rAF and retry.
-          if (!verseEl && (!chapEl.getAttribute('data-hydrated') || chapEl.getAttribute('data-hydrated') === 'false')) {
-            console.log('[BIBLE-DEBUG] scrollToVerse: chapter not hydrated yet, waiting extra rAF');
-            requestAnimationFrame(() => {
-              const retryEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
-              console.log('[BIBLE-DEBUG] scrollToVerse retry', { verse: targetNum, found: !!retryEl });
-              if (retryEl) {
-                retryEl.scrollIntoView({ behavior: "instant", block: align });
-              } else {
-                chapEl.scrollIntoView({ behavior: "instant", block: "start" });
-              }
-            });
-            return;
+          // If verse not found AND the chapter wrapper is empty AND bookContext exists,
+          // force-hydrate this chapter manually. updateWindowing might have been a no-op
+          // (e.g., bookContext[level] missing on this render). This is the safety net.
+          if (!verseEl && chapHTMLLen === 0) {
+            const context = this.bookContexts[level];
+            if (context && context.data && context.data.chapters[chapter]) {
+              console.log('[BIBLE-DEBUG] scrollToVerse force-hydrating chapter', chapter);
+              chapEl.classList.remove('dehydrated');
+              chapEl.style.height = 'auto';
+              this.hydrateChapter(chapEl, context.data.chapters[chapter], context.book, parseInt(chapter, 10), null, null, context.isRTL);
+              chapEl.setAttribute('data-hydrated', 'true');
+              verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
+              console.log('[BIBLE-DEBUG] scrollToVerse post-force-hydrate', { found: !!verseEl });
+            }
           }
 
           if (verseEl) {
