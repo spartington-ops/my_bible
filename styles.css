@@ -1,0 +1,368 @@
+/* Removes native Obsidian Top Padding Gap for absolute flush integration */
+.mb-native-integration .view-content {
+  padding: 0 !important;
+}
+
+/* Injected Native View Header Controls */
+.mb-header-select {
+  margin-right: 8px;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.mb-header-select:hover {
+  background-color: var(--background-modifier-hover) !important;
+  color: var(--text-normal);
+}
+
+/* Chapter Container & Buttons */
+.chapter-button { width: fit-content; }
+[data-type="bible-view"] .chapter-container {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 15px 25px; 
+  height: auto;
+  overflow: auto;
+}
+[data-type="bible-view"] .chapter-container p { text-align: justify; }
+
+/* Interactive Verses & Letter-Only Underlining */
+[data-type="bible-view"] .verse {
+  transition: background-color 0.1s ease;
+}
+
+/* Hover preview: whole verse, strictly letters (.vtext), dotted underline */
+[data-type="bible-view"] .verse.verse-hover .vtext { 
+  text-decoration: underline dotted var(--text-accent); 
+  text-underline-offset: 3px;
+  cursor: pointer; 
+}
+
+/* Selected active verse: dotted underline strictly on text + background */
+[data-type="bible-view"] .verse.active-verse .vtext { 
+  text-decoration: underline dotted var(--text-accent); 
+  text-underline-offset: 3px;
+  background: var(--background-secondary-alt); 
+  border-radius: 2px;
+}
+
+[data-type="bible-view"] .mb-poetry-stanza .verse.active-verse {
+  display: inline;
+}
+
+/* Target Verse Permanent Highlight when navigating via Cross-Reference */
+.highlight-target .vtext {
+  background-color: var(--text-highlight-bg, rgba(255, 220, 0, 0.4));
+  border-radius: 2px;
+}
+
+/* Layout Wrappers */
+.main-layout-container {
+  flex: 1 1 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+[data-type="bible-view"] .bible-wrapper { 
+  flex: 1 1 0; 
+  min-height: 0; 
+  overflow-y: auto; 
+  padding: 0 15px; 
+}
+.book-divider { width: 100%; }
+
+/* DOM Windowing Classes */
+.mb-chapter-wrapper { margin-bottom: 15px; }
+
+.mb-chapter-wrapper.dehydrated {
+    overflow: hidden;
+    pointer-events: none;
+    border: none;
+    background: transparent;
+}
+
+/* Chapter Title H2 Styling Restored */
+.mb-chapter-wrapper .mb-chapter-heading {
+  display: block !important;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 1.4em;
+  font-weight: 700;
+}
+
+.mb-chapter-wrapper h3,
+.mb-section-heading {
+  margin-top: 1em;
+  margin-bottom: 0.6em;
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Footnotes & Verse Numbers */
+.vnum { 
+  font-size: 0.8em; 
+  color: var(--text-muted); 
+  font-weight: bold; 
+  user-select: none; 
+}
+
+/* Dynamic Interactive Footnotes */
+.mb-footnote-marker {
+  cursor: pointer;
+  color: var(--text-accent);
+  font-size: 0.75em;
+  opacity: 0.85;
+  margin: 0 2px;
+  transition: opacity 0.1s ease;
+}
+
+.mb-footnote-marker:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Floating Tooltip Box */
+.mb-floating-tooltip {
+  position: absolute;
+  background-color: var(--background-secondary-alt);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: normal;
+  line-height: 1.4;
+  z-index: 9999;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  cursor: pointer;
+  max-height: 35vh;
+  overflow-y: auto;
+  word-wrap: break-word;
+}
+
+.mb-floating-tooltip:hover {
+  border-color: var(--text-accent);
+}
+
+/* Absolute Pane Wrapper for Stacking */
+.mb-pane-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-primary);
+  box-shadow: 0px -4px 15px rgba(0, 0, 0, 0.25);
+}
+
+/* Sleek 1px Visual Resizer Bar with large 20px invisible touch target */
+.mb-resizer {
+  flex: 0 0 1px; /* Very thin visual line */
+  background-color: var(--background-modifier-border);
+  cursor: row-resize;
+  z-index: 10;
+  touch-action: none;
+  position: relative;
+  transition: background-color 0.1s ease;
+}
+
+.mb-resizer::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  left: 0;
+  right: 0;
+  z-index: 11;
+}
+
+.mb-resizer:hover, .mb-resizer:active {
+  background-color: var(--text-accent);
+}
+
+/* Cross-Reference Pane Styling */
+.crossref-pane {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.crossref-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 15px;
+  background: var(--background-secondary-alt);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cr-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.crossref-close-btn, .crossref-return-btn {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.crossref-close-btn {
+  color: var(--text-muted);
+  font-size: 1.1em;
+}
+
+.crossref-close-btn:hover {
+  color: var(--text-error);
+}
+
+.crossref-return-btn {
+  color: var(--text-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crossref-return-btn:hover {
+  color: var(--text-normal);
+}
+
+.crossref-title {
+  font-weight: 600;
+  color: var(--text-normal);
+  font-size: 0.95em;
+}
+
+/* Native Translation icon for the Cross Reference Header */
+.crossref-trans-btn {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.crossref-trans-btn:hover {
+  color: var(--text-normal);
+}
+
+.crossref-content {
+  flex: 1 1 0;
+  overflow-y: auto;
+  padding: 0 15px;
+}
+
+/* Interactive Cross-Reference Links */
+.mb-crossref-link {
+  color: var(--text-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.mb-crossref-link:hover {
+  color: var(--text-accent-hover, var(--text-accent));
+  background: var(--background-modifier-hover);
+  border-radius: 2px;
+}
+
+.hide-footnotes .mb-footnote-marker {
+  display: none !important;
+}
+
+/* Typography & Layout Rules */
+[data-type="bible-view"] .reader-container { 
+  line-height: 1.65;
+  font-size: 1.05rem;
+}
+
+/* Fixed iPad / Mobile Font Sizing Adjustments */
+.is-mobile [data-type="bible-view"] .reader-container {
+  font-size: 1.15rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 1024px) {
+  [data-type="bible-view"] .reader-container {
+    font-size: 1.15rem;
+    line-height: 1.7;
+  }
+}
+
+/* Prose Paragraphs */
+[data-type="bible-view"] .reader-container .mb-prose-paragraph { 
+  display: block;
+  margin-top: 0;
+  margin-bottom: 0.6em;
+  text-indent: 1em;
+}
+
+[data-type="bible-view"] .reader-container .mb-prose-paragraph .verse:first-child { 
+  text-indent: 0;
+}
+
+/* Poetic Stanzas */
+[data-type="bible-view"] .reader-container .mb-poetry-stanza { 
+  display: block;
+  margin-top: 0;
+  margin-bottom: 0.6em;
+}
+
+.mb-poetic-line {
+  display: inline;
+}
+
+.mb-poetic-indent {
+  display: inline-block;
+  margin-left: 1.5em;
+}
+
+/* Verse-by-Verse Mode */
+[data-type="bible-view"] .reader-container .mb-verse-line { 
+  display: block;
+  margin-top: 0;
+  margin-bottom: 0.35em;
+}
+
+/* RTL Support */
+[data-type="bible-view"] .reader-container.is-rtl { 
+  direction: rtl; 
+  text-align: right; 
+  font-family: 'Times New Roman', serif; 
+  font-size: 1.25em; 
+}
+
+[data-type="bible-view"] .reader-container.is-rtl .mb-prose-paragraph,
+[data-type="bible-view"] .reader-container.is-rtl .mb-poetry-stanza { 
+  text-align: right; 
+}
+
+[data-type="bible-view"] .reader-container.is-rtl .mb-poetic-indent {
+  margin-left: 0;
+  margin-right: 1.5em;
+}

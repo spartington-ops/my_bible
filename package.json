@@ -1,0 +1,13 @@
+{
+  "name": "my-bible-plugin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Custom Obsidian Bible sidecar reading local JSON files. ESV, NASB, NIV, NKJV, NLT, CSB, NET, LSB, plus WLC (Hebrew) and SBLGNT (Greek).",
+  "scripts": {
+    "sync": "node scripts/sync.js",
+    "watch": "node scripts/sync.js --watch",
+    "lint": "node scripts/smoke.js"
+  },
+  "author": "Sean Partington",
+  "license": "MIT"
+}

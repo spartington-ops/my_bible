@@ -1,0 +1,9 @@
+{
+	"id": "my-bible",
+	"name": "My Bible",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Custom offline Bible sidecar reading local JSON files.",
+	"author": "Your Name",
+	"isDesktopOnly": false
+}
