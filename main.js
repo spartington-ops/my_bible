@@ -790,8 +790,11 @@ class BibleView extends obsidian.ItemView {
       // X on the top pane closes only itself.
       // crPanes is 0-indexed; pane at level N lives at index N-1. We pop
       // from the end so indices of remaining panes stay stable.
+      // Guard: paneLevel must be >= 1 for the condition to make sense.
+      if (typeof paneLevel !== "number" || paneLevel < 1) return;
       while (this.crPanes.length >= paneLevel) {
           const popped = this.crPanes.pop();
+          if (!popped) break;
           if (popped.paneWrapper) popped.paneWrapper.remove();
           if (popped.observer) popped.observer.disconnect();
           delete this.bookContexts[popped.level];
@@ -802,7 +805,7 @@ class BibleView extends obsidian.ItemView {
       const newLevel = sourceLevel + 1;
       // Close any cross-ref panes at or above the new level (opening a fresh
       // pane replaces the stack from that point onward).
-      this.closeCrossrefPaneAndStack(sourceLevel);
+      this.closeCrossrefPaneAndStack(newLevel);
 
       const paneWrapper = this.contentEl.createDiv({ cls: "mb-pane-wrapper" });
       paneWrapper.style.height = "45%";
