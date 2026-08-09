@@ -60,8 +60,25 @@ const BOOK_ALIASES = {
   "jude": "Jude", "revelation": "Revelation", "rev": "Revelation"
 };
 
+// Sort by length so longer aliases match first ("1 sam" before "1 s")
 const SORTED_ALIASES = Object.keys(BOOK_ALIASES).sort((a, b) => b.length - a.length);
-const BOOK_PATTERN = SORTED_ALIASES.map(b => b.replace(/\s+/g, '\\s+')).join('|');
+
+// Escape regex-special characters in alias strings, then allow flexible whitespace.
+// Wrapping the whole pattern in non-capturing groups prevents accidental capture
+// group leaks if an alias ever contains parentheses.
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const BOOK_PATTERN = SORTED_ALIASES.map(b => escapeRegex(b).replace(/\s+/g, '\\s+')).join('|');
+
+// Pre-built regex for parseFnMarkdown. Built once at module load (was being rebuilt
+// on every footnote tooltip render — small perf win, mostly cleaner code).
+const FN_BOOK_REGEX = `\\b(?:${BOOK_PATTERN})\\.?\\s+`;
+const FN_CH_REGEX = `\\b(?:ch|chapter)s?\\.?\\s+`;
+const FN_VER_REGEX = `\\b(?:v|ver|verse)s?\\.?\\s+`;
+const FN_NUM_REGEX = `\\d+(?:-\\d+)?(?::\\d+(?:-\\d+)?)?`;
+const FN_SEP_REGEX = `\\s*(?:[,;]|\\band\\b|\\balso\\s+see\\b|\\bsee\\b|\\bcf\\.?\\b)\\s*`;
+const FN_START_REGEX = `(?:(?:${FN_BOOK_REGEX}|${FN_CH_REGEX}|${FN_VER_REGEX})${FN_NUM_REGEX}|\\b\\d+(?:-\\d+)?:\\d+(?:-\\d+)?)`;
+const FN_FULL_BLOCK_REGEX = new RegExp(`(${FN_START_REGEX})(?:(?:${FN_SEP_REGEX})(?:(?:${FN_BOOK_REGEX}|${FN_CH_REGEX}|${FN_VER_REGEX})?${FN_NUM_REGEX}))*`, 'gi');
+const FN_PART_REGEX = new RegExp(`(${FN_SEP_REGEX})?(?:(${FN_BOOK_REGEX})|(${FN_CH_REGEX})|(${FN_VER_REGEX}))?(\\d+(?:-\\d+)?)(?::(\\d+(?:-\\d+)?))?`, 'gi');
 
 const DEFAULT_SETTINGS = {
   bibleVersion: "ESV",
@@ -256,6 +273,39 @@ class BibleView extends obsidian.ItemView {
     if (this.viewMode === "reader") this.renderView();
   }
 
+  // Called by the delegated click listener in setupTooltipDelegation. Replaces the
+  // old per-verse addEventListener. Looks up the verse's chapter + book from the
+  // cached book context, then runs the same toggle/copy logic the old code did.
+  handleDelegatedVerseClick(verseEl, level) {
+    const chapWrapper = verseEl.closest(".mb-chapter-wrapper");
+    if (!chapWrapper) return;
+    const context = this.bookContexts[level];
+    if (!context) return;
+
+    const chapter = chapWrapper.getAttribute("data-chapter");
+    const book = context.book;
+    const verseNum = parseInt(verseEl.getAttribute("data-num"), 10);
+    if (!chapter || !verseNum) return;
+
+    // Toggle the active-verse class on every matching verse span (poetry uses the
+    // same data-num so all duplicate lines flip together, matching the old behavior).
+    const allVerseEls = Array.from(chapWrapper.querySelectorAll(`.verse[data-num="${verseNum}"]`));
+    if (allVerseEls.length === 0) return;
+    const willBeActive = !allVerseEls[0].classList.contains("active-verse");
+    allVerseEls.forEach(el => el.classList.toggle("active-verse", willBeActive));
+
+    // Rebuild the full verse text from the cached chapter data.
+    const chapData = context.data.chapters[chapter];
+    if (!chapData) return;
+    let fullVerseText = "";
+    (chapData.blocks || []).forEach(b => {
+      if (b.type === "poetry_stanza") b.lines.forEach(l => { if (l.verse === verseNum) fullVerseText += l.text + " "; });
+      else if (b.type === "prose_paragraph") b.verses.forEach(v => { if (v.number === verseNum) fullVerseText += v.text + " "; });
+    });
+
+    this.handleMultiVerseCopy(book, chapter, verseNum, fullVerseText.trim(), willBeActive);
+  }
+
   async onOpen() {
     await this.loadAvailableTranslations();
 
@@ -329,12 +379,17 @@ class BibleView extends obsidian.ItemView {
     const adapter = this.app.vault.adapter;
     const biblesDir = await this.plugin.getBiblesDirectory();
     let targetTranslation = translation;
-    
+
     if (translation === "Hebrew / Greek") {
       const isOT = CANONICAL_BOOKS.indexOf(book) < 39;
-      targetTranslation = isOT 
+      targetTranslation = isOT
         ? this.installedTranslations.find(t => ["wlc", "hebrew"].includes(t.toLowerCase()))
         : this.installedTranslations.find(t => ["sblgnt", "greek"].includes(t.toLowerCase()));
+      if (!targetTranslation) {
+        const need = isOT ? "WLC (Hebrew)" : "SBLGNT (Greek)";
+        new obsidian.Notice(`Hebrew/Greek mode needs ${need} installed. Showing original instead.`);
+        return null;
+      }
     }
 
     if (!targetTranslation) return null;
@@ -358,23 +413,16 @@ class BibleView extends obsidian.ItemView {
       .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
       .replace(/_([^_]+)_|\*([^*]+)\*/g, (m, g1, g2) => `<i>${g1 || g2}</i>`);
 
-    const bookRegexStr = `\\b(?:${BOOK_PATTERN})\\.?\\s+`;
-    const chRegexStr = `\\b(?:ch|chapter)s?\\.?\\s+`;
-    const verRegexStr = `\\b(?:v|ver|verse)s?\\.?\\s+`;
-    const numRegexStr = `\\d+(?:-\\d+)?(?::\\d+(?:-\\d+)?)?`;
-    const sepRegexStr = `\\s*(?:[,;]|\\band\\b|\\balso\\s+see\\b|\\bsee\\b|\\bcf\\.?\\b)\\s*`;
+    // Regex literals with the `g` flag carry state via .lastIndex, so reset them
+    // before each use to avoid skipping matches on repeated calls.
+    FN_FULL_BLOCK_REGEX.lastIndex = 0;
+    FN_PART_REGEX.lastIndex = 0;
 
-    const startPattern = `(?:(?:${bookRegexStr}|${chRegexStr}|${verRegexStr})${numRegexStr}|\\b\\d+(?:-\\d+)?:\\d+(?:-\\d+)?)`;
-    const continuation = `(?:(?:${sepRegexStr})(?:(?:${bookRegexStr}|${chRegexStr}|${verRegexStr})?${numRegexStr}))`;
-    
-    const fullBlockRegex = new RegExp(`(${startPattern})(?:${continuation})*`, 'gi');
-    const partRegex = new RegExp(`(${sepRegexStr})?(?:(${bookRegexStr})|(${chRegexStr})|(${verRegexStr}))?(\\d+(?:-\\d+)?)(?::(\\d+(?:-\\d+)?))?`, 'gi');
-
-    return formatted.replace(fullBlockRegex, (blockMatch) => {
+    return formatted.replace(FN_FULL_BLOCK_REGEX, (blockMatch) => {
       let currentBook = contextBook;
       let currentChapter = contextChapter;
-      
-      return blockMatch.replace(partRegex, (match, sep, bookStr, chStr, verStr, num1, num2) => {
+
+      return blockMatch.replace(FN_PART_REGEX, (match, sep, bookStr, chStr, verStr, num1, num2) => {
           let isNewBook = false;
           if (bookStr) {
               const aliasKey = bookStr.toLowerCase().replace(/[.\s]+/g, ' ').trim();
@@ -448,7 +496,13 @@ class BibleView extends obsidian.ItemView {
           const targetNum = String(verse).includes('-') ? String(verse).split('-')[0] : verse;
           const verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
           if (verseEl) {
-            verseEl.scrollIntoView({ behavior: "instant", block: align });
+            // If the chapter wrapper is empty (just-hydrated), wait one more frame
+            // so the verse element has actual layout before scrollIntoView measures it.
+            if (chapEl.classList.contains("dehydrated") || chapEl.innerHTML.trim() === "") {
+              requestAnimationFrame(() => verseEl.scrollIntoView({ behavior: "instant", block: align }));
+            } else {
+              verseEl.scrollIntoView({ behavior: "instant", block: align });
+            }
             return;
           }
         }
@@ -468,7 +522,7 @@ class BibleView extends obsidian.ItemView {
 
   hydrateChapter(chapWrapper, chapData, book, chNum, highlightChapter, highlightVerse, isRTL) {
     chapWrapper.createEl("h2", { text: `${book} ${chNum}`, cls: "mb-chapter-heading" });
-    
+
     let startHighlight = null, endHighlight = null;
     if (highlightChapter && String(chNum) === String(highlightChapter) && highlightVerse) {
       if (String(highlightVerse).includes('-')) {
@@ -482,22 +536,8 @@ class BibleView extends obsidian.ItemView {
     const isParagraphMode = this.settings.showParagraphs;
     const isVerseSelected = (vNum) => this.selectedVerses.some(v => v.book === book && String(v.chapter) === String(chNum) && String(v.num) === String(vNum));
 
-    const toggleVerseSelection = (evt, verseNum) => {
-      if (evt.target.closest(".mb-footnote-marker") || evt.target.closest(".mb-crossref-link")) return;
-      const allVerseEls = Array.from(chapWrapper.querySelectorAll(`.verse[data-num="${verseNum}"]`));
-      if (allVerseEls.length === 0) return;
-      
-      const willBeActive = !allVerseEls[0].classList.contains("active-verse");
-      allVerseEls.forEach(el => el.classList.toggle("active-verse", willBeActive));
-      
-      let fullVerseText = "";
-      chapData.blocks.forEach(b => {
-        if (b.type === "poetry_stanza") b.lines.forEach(l => { if (l.verse === verseNum) fullVerseText += l.text + " "; });
-        else if (b.type === "prose_paragraph") b.verses.forEach(v => { if (v.number === verseNum) fullVerseText += v.text + " "; });
-      });
-      
-      this.handleMultiVerseCopy(book, chNum, verseNum, fullVerseText.trim(), willBeActive);
-    };
+    // Click handling has moved to event delegation in setupTooltipDelegation (single
+    // listener per pane, no per-verse leaks). This function now only renders DOM.
 
     (chapData.blocks || []).forEach(block => {
       if (block.type === "heading" && this.settings.showHeadings) {
@@ -526,8 +566,7 @@ class BibleView extends obsidian.ItemView {
             verseEl.createSpan({ cls: "vtext" }).innerHTML = formattedText.trim();
             verseEl.createSpan({ cls: "vspace", text: " " });
           }
-
-          verseEl.addEventListener("click", (evt) => toggleVerseSelection(evt, lineObj.verse));
+          // Click handling is delegated on the container (see setupTooltipDelegation) — no per-verse listeners.
         });
       } else if (block.type === "prose_paragraph") {
         const blockEl = chapWrapper.createEl(isParagraphMode ? "p" : "div", { cls: isParagraphMode ? "mb-prose-paragraph" : "mb-verse-line" });
@@ -542,7 +581,7 @@ class BibleView extends obsidian.ItemView {
           verseEl.createSpan({ cls: "vspace", text: " " });
 
           if (!isParagraphMode) blockEl.createEl("br");
-          verseEl.addEventListener("click", (evt) => toggleVerseSelection(evt, vObj.number));
+          // Click handling is delegated on the container (see setupTooltipDelegation) — no per-verse listeners.
         });
       }
     });
@@ -551,29 +590,32 @@ class BibleView extends obsidian.ItemView {
   updateWindowing(activeChStr, container, level) {
       const context = this.bookContexts[level];
       if (!context) return;
-      
+
       const active = parseInt(activeChStr, 10);
       const windowRange = [active-2, active-1, active, active+1, active+2];
-      
+
       container.querySelectorAll('.mb-chapter-wrapper').forEach(el => {
           const ch = parseInt(el.getAttribute('data-chapter'), 10);
+          const isHydrated = el.getAttribute('data-hydrated') === 'true';
           if (windowRange.includes(ch)) {
-              if (el.classList.contains('dehydrated') || el.innerHTML === '') {
+              if (!isHydrated) {
                   const oldHeight = el.getBoundingClientRect().height;
                   el.classList.remove('dehydrated');
                   el.style.height = 'auto';
                   el.innerHTML = '';
                   this.hydrateChapter(el, context.data.chapters[ch], context.book, ch, context.highlightChapter, context.highlightVerse, context.isRTL);
-                  
+                  el.setAttribute('data-hydrated', 'true');
+
                   const newHeight = el.getBoundingClientRect().height;
                   if (ch < active && container) {
                       container.scrollTop += (newHeight - oldHeight);
                   }
               }
-          } else if (!el.classList.contains('dehydrated')) {
+          } else if (isHydrated) {
               el.style.height = `${el.getBoundingClientRect().height}px`;
               el.innerHTML = '';
               el.classList.add('dehydrated');
+              el.setAttribute('data-hydrated', 'false');
           }
       });
   }
@@ -591,7 +633,13 @@ class BibleView extends obsidian.ItemView {
 
       this.bookContexts[level] = { data, book, highlightChapter, highlightVerse, isRTL };
       const readerContainer = container.createDiv({ cls: `reader-container ${isRTL ? 'is-rtl' : ''}` });
-      
+
+      // Disconnect the previous observer for this level (if any) BEFORE creating a new one.
+      // Without this, a translation switch would leave two observers firing on the same DOM,
+      // causing updateWindowing to be called twice and the scroll position to flip-flop.
+      const existingObserver = (level > 0 && this.crPanes[level - 1]) ? this.crPanes[level - 1].observer : this.chapterObserver;
+      if (existingObserver) existingObserver.disconnect();
+
       const observer = new IntersectionObserver((entries) => {
           let activeCh = null;
           entries.forEach(entry => { if (entry.isIntersecting) activeCh = entry.target.getAttribute("data-chapter"); });
@@ -616,7 +664,7 @@ class BibleView extends obsidian.ItemView {
 
       readerContainer.style.opacity = "0";
       chapters.forEach(chNum => {
-          const chapWrapper = readerContainer.createDiv({ cls: "mb-chapter-wrapper dehydrated", attr: { 'data-chapter': chNum } });
+          const chapWrapper = readerContainer.createDiv({ cls: "mb-chapter-wrapper dehydrated", attr: { 'data-chapter': chNum, 'data-hydrated': 'false' } });
           chapWrapper.style.height = "1500px";
           observer.observe(chapWrapper);
       });
@@ -790,6 +838,7 @@ class BibleView extends obsidian.ItemView {
     let currentHoverNum = null, currentHoverChap = null;
 
     container.addEventListener("click", (e) => {
+      // Cross-reference link: open in stacked pane
       const link = e.target.closest(".mb-crossref-link");
       if (link) {
         e.stopPropagation();
@@ -798,12 +847,22 @@ class BibleView extends obsidian.ItemView {
         return;
       }
 
+      // Footnote marker: show tooltip (or hide existing)
       const marker = e.target.closest(".mb-footnote-marker");
       if (marker) {
         e.stopPropagation();
         if (!this.activeTooltip || this.activeTooltip.dataset.marker !== marker.dataset.key) {
           this.showTooltip(marker, container, level);
         }
+        return;
+      }
+
+      // Verse click: toggle selection (single delegated listener — replaces the old
+      // per-verse addEventListener which leaked listeners on every dehydrate/rehydrate).
+      const verseEl = e.target.closest(".verse");
+      if (verseEl && !e.target.closest(".mb-floating-tooltip")) {
+        e.stopPropagation();
+        this.handleDelegatedVerseClick(verseEl, level);
         return;
       }
 
