@@ -490,7 +490,10 @@ class BibleView extends obsidian.ItemView {
     } : null;
   }
 
-  /* Universal scrolling utility that forces windowing hydration BEFORE positioning */
+  /* Universal scrolling utility that forces windowing hydration BEFORE positioning.
+   Places the verse at the visual center of the wrapper, accounting for any
+   pane covering part of the reader. This is symmetric (works for 1-line or
+   multi-line verses alike) and stable across reflow / font changes. */
   scrollToVerse(container, chapter, verse, align = "center", level = 0) {
     if (!container || !chapter) return;
 
@@ -526,19 +529,85 @@ class BibleView extends obsidian.ItemView {
           }
 
           if (verseEl) {
-            // If the chapter wrapper is empty (just-hydrated), wait one more frame
-            // so the verse element has actual layout before scrollIntoView measures it.
-            if (chapEl.classList.contains("dehydrated") || chapEl.innerHTML.trim() === "") {
-              requestAnimationFrame(() => verseEl.scrollIntoView({ behavior: "instant", block: align }));
-            } else {
-              verseEl.scrollIntoView({ behavior: "instant", block: align });
-            }
+            this.centerVerseInContainer(container, verseEl, align);
             return;
           }
         }
-        chapEl.scrollIntoView({ behavior: "instant", block: "start" });
+        // Fallback: chapter-only scroll, verse not found
+        this.centerVerseInContainer(container, chapEl, "start");
       });
     });
+  }
+
+  // Place `targetEl` at the visual center of `container`, accounting for any
+  // cross-reference pane covering part of the reader. Uses scrollTo directly so
+  // the result is independent of how tall targetEl is — a 1-line verse lands
+  // in the same place as a 12-line paragraph. We also store the centered verse
+  // so a resize observer can re-center on width changes (iPad layout shift).
+  centerVerseInContainer(container, targetEl, align = "center") {
+    // Wait one more frame so layout is final (esp. just after hydration).
+    requestAnimationFrame(() => {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      if (containerRect.height === 0 || targetRect.height === 0) return;
+
+      // Find any cross-ref pane that overlaps this container so we don't
+      // center the verse under a hidden pane. For pane-level readers (cross-ref),
+      // the parent reader pane is the occluder. For level-0 reader, look at
+      // all sibling .mb-pane-wrapper elements that are stacked in front.
+      let occluderHeight = 0;
+      if (container.dataset.level === "0") {
+        const panes = container.closest('.bible-view')?.querySelectorAll('.mb-pane-wrapper') || [];
+        panes.forEach(p => {
+          const r = p.getBoundingClientRect();
+          // Only count panes that overlap the container horizontally
+          if (r.left < containerRect.right && r.right > containerRect.left) {
+            occluderHeight += r.height;
+          }
+        });
+      }
+
+      const visibleTop = containerRect.top;
+      const visibleBottom = containerRect.bottom - occluderHeight;
+      const visibleCenter = (visibleTop + visibleBottom) / 2;
+      const targetCenter = (targetRect.top + targetRect.bottom) / 2;
+
+      // Offset to apply: how far we need to scroll to put targetCenter at visibleCenter
+      let delta;
+      if (align === "start") {
+        // Top-align: put target's top at visible top + small padding
+        delta = targetRect.top - visibleTop - 24;
+      } else {
+        // Center (default): put target's center at visible center
+        delta = targetCenter - visibleCenter;
+      }
+
+      const newScrollTop = container.scrollTop + delta;
+      container.scrollTo({ top: Math.max(0, newScrollTop), behavior: "instant" });
+
+      // Remember this as the centered target so resize can re-center it.
+      container.dataset.centeredVerseKey = targetEl.getAttribute("data-num") || "";
+      container.dataset.centeredChapter = targetEl.closest('.mb-chapter-wrapper')?.getAttribute("data-chapter") || "";
+    });
+  }
+
+  // Set up a resize observer on the container so when the iPad (or any browser)
+  // changes the pane width, we re-center on the currently-centered verse. Without
+  // this, text reflow causes the verse to drift off-center.
+  installResizeLock(container, level) {
+    if (!container || container.dataset.resizeLockInstalled === "true") return;
+    container.dataset.resizeLockInstalled = "true";
+    const ro = new ResizeObserver(() => {
+      const verseNum = container.dataset.centeredVerseKey;
+      const chapter = container.dataset.centeredChapter;
+      if (!verseNum || !chapter) return;
+      const chapEl = container.querySelector(`[data-chapter="${chapter}"]`);
+      const verseEl = chapEl && chapEl.querySelector(`[data-num="${verseNum}"]`);
+      if (verseEl) this.centerVerseInContainer(container, verseEl, "center");
+    });
+    ro.observe(container);
+    if (!this._resizeObservers) this._resizeObservers = [];
+    this._resizeObservers.push(ro);
   }
 
   // Hydrate (only) chapters within ±2 of `activeChStr`. Does NOT dehydrate
@@ -732,6 +801,9 @@ class BibleView extends obsidian.ItemView {
       });
 
       this.setupTooltipDelegation(container, level);
+      // Lock the centered verse on resize so iPad/desktop layout shifts don't
+      // make the verse drift off-center when the user resizes the pane.
+      this.installResizeLock(container, level);
       const targetCh = scrollChapter || "1";
 
       this.scrollToVerse(readerContainer, targetCh, scrollVerse, "center", level);
