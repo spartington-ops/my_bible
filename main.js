@@ -516,8 +516,28 @@ class BibleView extends obsidian.ItemView {
 
         if (verse) {
           const targetNum = String(verse).includes('-') ? String(verse).split('-')[0] : verse;
-          const verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
-          console.log('[BIBLE-DEBUG] scrollToVerse verse lookup', { verse, targetNum, verseElFound: !!verseEl });
+          let verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
+          const chapHTMLLen = chapEl.innerHTML.length;
+          const chapVerseCount = chapEl.querySelectorAll('.verse').length;
+          console.log('[BIBLE-DEBUG] scrollToVerse verse lookup', { verse, targetNum, verseElFound: !!verseEl, chapHTMLLen, chapVerseCount, chapHydrated: chapEl.getAttribute('data-hydrated') });
+
+          // If verse not found but chapter wrapper has content but no verses,
+          // OR wrapper has data-hydrated="false", the chapter may still be
+          // hydrating. Wait one more rAF and retry.
+          if (!verseEl && (!chapEl.getAttribute('data-hydrated') || chapEl.getAttribute('data-hydrated') === 'false')) {
+            console.log('[BIBLE-DEBUG] scrollToVerse: chapter not hydrated yet, waiting extra rAF');
+            requestAnimationFrame(() => {
+              const retryEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
+              console.log('[BIBLE-DEBUG] scrollToVerse retry', { verse: targetNum, found: !!retryEl });
+              if (retryEl) {
+                retryEl.scrollIntoView({ behavior: "instant", block: align });
+              } else {
+                chapEl.scrollIntoView({ behavior: "instant", block: "start" });
+              }
+            });
+            return;
+          }
+
           if (verseEl) {
             // If the chapter wrapper is empty (just-hydrated), wait one more frame
             // so the verse element has actual layout before scrollIntoView measures it.
