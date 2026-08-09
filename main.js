@@ -332,17 +332,11 @@ class BibleView extends obsidian.ItemView {
             if (onSelect) {
               onSelect(t);
             } else {
-              const beforeTrans = this.currentTranslation;
-              const beforeActiveChapter = this.activeChapter;
-              const beforeSavedCenter = this.savedCenterVerse ? { ...this.savedCenterVerse } : null;
-              const beforeTargetScroll = { ch: this.targetScrollChapter, v: this.targetScrollVerse };
-              console.log('[BIBLE-DEBUG] translation switch clicked', { beforeTrans, beforeActiveChapter, beforeSavedCenter, beforeTargetScroll, target: t });
               this.currentTranslation = t;
               this.clearSelections();
               if (this.viewMode === "reader" && this.contentEl) {
                 const wrapper = this.contentEl.querySelector('.main-bible-wrapper');
                 const center = this.getCenterVerse(wrapper);
-                console.log('[BIBLE-DEBUG] getCenterVerse returned', center);
                 if (center) {
                   // Center verse found — use it.
                   this.activeChapter = center.chapter;
@@ -360,9 +354,7 @@ class BibleView extends obsidian.ItemView {
                   this.targetScrollVerse = null;
                 }
               }
-              console.log('[BIBLE-DEBUG] post-decision state', { activeChapter: this.activeChapter, targetScrollChapter: this.targetScrollChapter, targetScrollVerse: this.targetScrollVerse, savedCenterVerse: this.savedCenterVerse });
               const state = this.getState();
-              console.log('[BIBLE-DEBUG] state object passed to setViewState', state);
               state.currentTranslation = this.currentTranslation;
               await this.leaf.setViewState({ type: VIEW_TYPE, state: state }, { history: true });
             }
@@ -500,10 +492,7 @@ class BibleView extends obsidian.ItemView {
 
   /* Universal scrolling utility that forces windowing hydration BEFORE positioning */
   scrollToVerse(container, chapter, verse, align = "center", level = 0) {
-    if (!container || !chapter) {
-      console.log('[BIBLE-DEBUG] scrollToVerse early-return', { container: !!container, chapter });
-      return;
-    }
+    if (!container || !chapter) return;
 
     // HYDRATE only (don't dehydrate) — we want to be sure the target chapter and
     // its neighbors are present without DELETING whatever else is hydrated.
@@ -514,29 +503,23 @@ class BibleView extends obsidian.ItemView {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const chapEl = container.querySelector(`[data-chapter="${chapter}"]`);
-        console.log('[BIBLE-DEBUG] scrollToVerse rAF fired', { chapter, verse, chapElFound: !!chapEl });
         if (!chapEl) return;
 
         if (verse) {
           const targetNum = String(verse).includes('-') ? String(verse).split('-')[0] : verse;
           let verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
-          const chapHTMLLen = chapEl.innerHTML.length;
-          const chapVerseCount = chapEl.querySelectorAll('.verse').length;
-          console.log('[BIBLE-DEBUG] scrollToVerse verse lookup', { verse, targetNum, verseElFound: !!verseEl, chapHTMLLen, chapVerseCount, chapHydrated: chapEl.getAttribute('data-hydrated') });
 
           // If verse not found AND the chapter wrapper is empty AND bookContext exists,
-          // force-hydrate this chapter manually. updateWindowing might have been a no-op
+          // force-hydrate this chapter manually. hydrateWindow might have been a no-op
           // (e.g., bookContext[level] missing on this render). This is the safety net.
-          if (!verseEl && chapHTMLLen === 0) {
+          if (!verseEl && chapEl.innerHTML.trim() === "") {
             const context = this.bookContexts[level];
             if (context && context.data && context.data.chapters[chapter]) {
-              console.log('[BIBLE-DEBUG] scrollToVerse force-hydrating chapter', chapter);
               chapEl.classList.remove('dehydrated');
               chapEl.style.height = 'auto';
               this.hydrateChapter(chapEl, context.data.chapters[chapter], context.book, parseInt(chapter, 10), null, null, context.isRTL);
               chapEl.setAttribute('data-hydrated', 'true');
               verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
-              console.log('[BIBLE-DEBUG] scrollToVerse post-force-hydrate', { found: !!verseEl });
             }
           }
 
@@ -544,19 +527,14 @@ class BibleView extends obsidian.ItemView {
             // If the chapter wrapper is empty (just-hydrated), wait one more frame
             // so the verse element has actual layout before scrollIntoView measures it.
             if (chapEl.classList.contains("dehydrated") || chapEl.innerHTML.trim() === "") {
-              requestAnimationFrame(() => {
-                console.log('[BIBLE-DEBUG] scrollToVerse extra rAF verse scroll', { verse: targetNum });
-                verseEl.scrollIntoView({ behavior: "instant", block: align });
-              });
+              requestAnimationFrame(() => verseEl.scrollIntoView({ behavior: "instant", block: align }));
             } else {
               verseEl.scrollIntoView({ behavior: "instant", block: align });
-              console.log('[BIBLE-DEBUG] scrollToVerse direct verse scroll', { verse: targetNum });
             }
             return;
           }
         }
         chapEl.scrollIntoView({ behavior: "instant", block: "start" });
-        console.log('[BIBLE-DEBUG] scrollToVerse chapter-only scroll (verse not found)');
       });
     });
   }
@@ -567,10 +545,7 @@ class BibleView extends obsidian.ItemView {
   // the observer's earlier call dehydrates what we just hydrated.
   hydrateWindow(activeChStr, container, level) {
       const context = this.bookContexts[level];
-      if (!context) {
-        console.log('[BIBLE-DEBUG] hydrateWindow early-return: no context for level', { level, activeChStr });
-        return;
-      }
+      if (!context) return;
       const active = parseInt(activeChStr, 10);
       const windowRange = [active-2, active-1, active, active+1, active+2];
       container.querySelectorAll('.mb-chapter-wrapper').forEach(el => {
@@ -669,11 +644,7 @@ class BibleView extends obsidian.ItemView {
 
   updateWindowing(activeChStr, container, level) {
       const context = this.bookContexts[level];
-      if (!context) {
-        console.log('[BIBLE-DEBUG] updateWindowing early-return: no context for level', { level, activeChStr, keys: Object.keys(this.bookContexts) });
-        return;
-      }
-      console.log('[BIBLE-DEBUG] updateWindowing start', { activeChStr, level, hasContext: true, contextBook: context.book, contextChapCount: Object.keys(context.data.chapters || {}).length });
+      if (!context) return;
 
       const active = parseInt(activeChStr, 10);
       const windowRange = [active-2, active-1, active, active+1, active+2];
@@ -705,10 +676,8 @@ class BibleView extends obsidian.ItemView {
   }
 
   async renderBookIntoContainer(book, translation, container, scrollChapter, scrollVerse, highlightChapter, highlightVerse, level) {
-      console.log('[BIBLE-DEBUG] renderBookIntoContainer START', { book, translation, level, scrollChapter, scrollVerse, highlightChapter, highlightVerse, containerExists: !!container });
       container.empty();
       const payload = await this.fetchBookData(translation, book);
-      console.log('[BIBLE-DEBUG] renderBookIntoContainer fetchBookData result', { book, translation, hasPayload: !!payload, payloadIsRTL: payload?.isRTL });
       if (!payload) {
           container.createEl("p", { text: "Could not load book data." });
           return;
@@ -831,7 +800,9 @@ class BibleView extends obsidian.ItemView {
 
   async openCrossrefPane(book, chapter, verse, sourceLevel) {
       const newLevel = sourceLevel + 1;
-      this.closeCrossrefPanesFrom(newLevel);
+      // Close any cross-ref panes at or above the new level (opening a fresh
+      // pane replaces the stack from that point onward).
+      this.closeCrossrefPaneAndStack(sourceLevel);
 
       const paneWrapper = this.contentEl.createDiv({ cls: "mb-pane-wrapper" });
       paneWrapper.style.height = "45%";
@@ -1064,15 +1035,7 @@ class BibleView extends obsidian.ItemView {
     } else if (this.viewMode === "chapters") {
       await this.renderChapterSelector(this.layoutContainer.querySelector('.main-bible-wrapper'));
     } else if (this.viewMode === "reader") {
-      const wrapper = this.layoutContainer.querySelector('.main-bible-wrapper');
-      console.log('[BIBLE-DEBUG] renderView reader branch', {
-        activeBook: this.activeBook,
-        currentTranslation: this.currentTranslation,
-        targetScrollChapter: this.targetScrollChapter,
-        targetScrollVerse: this.targetScrollVerse,
-        wrapperFound: !!wrapper
-      });
-      await this.renderBookIntoContainer(this.activeBook, this.currentTranslation, wrapper, this.targetScrollChapter, this.targetScrollVerse, null, null, 0);
+      await this.renderBookIntoContainer(this.activeBook, this.currentTranslation, this.layoutContainer.querySelector('.main-bible-wrapper'), this.targetScrollChapter, this.targetScrollVerse, null, null, 0);
       this.targetScrollChapter = null;
       this.targetScrollVerse = null;
     }
