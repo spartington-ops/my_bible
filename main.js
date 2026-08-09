@@ -332,11 +332,17 @@ class BibleView extends obsidian.ItemView {
             if (onSelect) {
               onSelect(t);
             } else {
+              const beforeTrans = this.currentTranslation;
+              const beforeActiveChapter = this.activeChapter;
+              const beforeSavedCenter = this.savedCenterVerse ? { ...this.savedCenterVerse } : null;
+              const beforeTargetScroll = { ch: this.targetScrollChapter, v: this.targetScrollVerse };
+              console.log('[BIBLE-DEBUG] translation switch clicked', { beforeTrans, beforeActiveChapter, beforeSavedCenter, beforeTargetScroll, target: t });
               this.currentTranslation = t;
               this.clearSelections();
               if (this.viewMode === "reader" && this.contentEl) {
                 const wrapper = this.contentEl.querySelector('.main-bible-wrapper');
                 const center = this.getCenterVerse(wrapper);
+                console.log('[BIBLE-DEBUG] getCenterVerse returned', center);
                 if (center) {
                   // Center verse found — use it.
                   this.activeChapter = center.chapter;
@@ -354,7 +360,9 @@ class BibleView extends obsidian.ItemView {
                   this.targetScrollVerse = null;
                 }
               }
+              console.log('[BIBLE-DEBUG] post-decision state', { activeChapter: this.activeChapter, targetScrollChapter: this.targetScrollChapter, targetScrollVerse: this.targetScrollVerse, savedCenterVerse: this.savedCenterVerse });
               const state = this.getState();
+              console.log('[BIBLE-DEBUG] state object passed to setViewState', state);
               state.currentTranslation = this.currentTranslation;
               await this.leaf.setViewState({ type: VIEW_TYPE, state: state }, { history: true });
             }
