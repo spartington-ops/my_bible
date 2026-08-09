@@ -505,8 +505,11 @@ class BibleView extends obsidian.ItemView {
       return;
     }
 
-    // Ensure the target chapter and its neighbors are hydrated first
-    this.updateWindowing(chapter, container, level);
+    // HYDRATE only (don't dehydrate) — we want to be sure the target chapter and
+    // its neighbors are present without DELETING whatever else is hydrated.
+    // updateWindowing is called later by the observer with the right active chapter
+    // and will dehydrate things properly.
+    this.hydrateWindow(chapter, container, level);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -556,6 +559,36 @@ class BibleView extends obsidian.ItemView {
         console.log('[BIBLE-DEBUG] scrollToVerse chapter-only scroll (verse not found)');
       });
     });
+  }
+
+  // Hydrate (only) chapters within ±2 of `activeChStr`. Does NOT dehydrate
+  // anything — that's the observer's job. This is what scrollToVerse calls
+  // before navigating, so the target chapter is present without races where
+  // the observer's earlier call dehydrates what we just hydrated.
+  hydrateWindow(activeChStr, container, level) {
+      const context = this.bookContexts[level];
+      if (!context) {
+        console.log('[BIBLE-DEBUG] hydrateWindow early-return: no context for level', { level, activeChStr });
+        return;
+      }
+      const active = parseInt(activeChStr, 10);
+      const windowRange = [active-2, active-1, active, active+1, active+2];
+      container.querySelectorAll('.mb-chapter-wrapper').forEach(el => {
+          const ch = parseInt(el.getAttribute('data-chapter'), 10);
+          const isHydrated = el.getAttribute('data-hydrated') === 'true';
+          if (windowRange.includes(ch) && !isHydrated) {
+              const oldHeight = el.getBoundingClientRect().height;
+              el.classList.remove('dehydrated');
+              el.style.height = 'auto';
+              el.innerHTML = '';
+              this.hydrateChapter(el, context.data.chapters[ch], context.book, ch, context.highlightChapter, context.highlightVerse, context.isRTL);
+              el.setAttribute('data-hydrated', 'true');
+              const newHeight = el.getBoundingClientRect().height;
+              if (ch < active && container) {
+                  container.scrollTop += (newHeight - oldHeight);
+              }
+          }
+      });
   }
 
   formatFootnotesAndMarkdown(text, chapData, book, chNum) {
