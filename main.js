@@ -500,7 +500,10 @@ class BibleView extends obsidian.ItemView {
 
   /* Universal scrolling utility that forces windowing hydration BEFORE positioning */
   scrollToVerse(container, chapter, verse, align = "center", level = 0) {
-    if (!container || !chapter) return;
+    if (!container || !chapter) {
+      console.log('[BIBLE-DEBUG] scrollToVerse early-return', { container: !!container, chapter });
+      return;
+    }
 
     // Ensure the target chapter and its neighbors are hydrated first
     this.updateWindowing(chapter, container, level);
@@ -508,23 +511,30 @@ class BibleView extends obsidian.ItemView {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const chapEl = container.querySelector(`[data-chapter="${chapter}"]`);
+        console.log('[BIBLE-DEBUG] scrollToVerse rAF fired', { chapter, verse, chapElFound: !!chapEl });
         if (!chapEl) return;
 
         if (verse) {
           const targetNum = String(verse).includes('-') ? String(verse).split('-')[0] : verse;
           const verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
+          console.log('[BIBLE-DEBUG] scrollToVerse verse lookup', { verse, targetNum, verseElFound: !!verseEl });
           if (verseEl) {
             // If the chapter wrapper is empty (just-hydrated), wait one more frame
             // so the verse element has actual layout before scrollIntoView measures it.
             if (chapEl.classList.contains("dehydrated") || chapEl.innerHTML.trim() === "") {
-              requestAnimationFrame(() => verseEl.scrollIntoView({ behavior: "instant", block: align }));
+              requestAnimationFrame(() => {
+                console.log('[BIBLE-DEBUG] scrollToVerse extra rAF verse scroll', { verse: targetNum });
+                verseEl.scrollIntoView({ behavior: "instant", block: align });
+              });
             } else {
               verseEl.scrollIntoView({ behavior: "instant", block: align });
+              console.log('[BIBLE-DEBUG] scrollToVerse direct verse scroll', { verse: targetNum });
             }
             return;
           }
         }
         chapEl.scrollIntoView({ behavior: "instant", block: "start" });
+        console.log('[BIBLE-DEBUG] scrollToVerse chapter-only scroll (verse not found)');
       });
     });
   }
@@ -996,7 +1006,15 @@ class BibleView extends obsidian.ItemView {
     } else if (this.viewMode === "chapters") {
       await this.renderChapterSelector(this.layoutContainer.querySelector('.main-bible-wrapper'));
     } else if (this.viewMode === "reader") {
-      await this.renderBookIntoContainer(this.activeBook, this.currentTranslation, this.layoutContainer.querySelector('.main-bible-wrapper'), this.targetScrollChapter, this.targetScrollVerse, null, null, 0);
+      const wrapper = this.layoutContainer.querySelector('.main-bible-wrapper');
+      console.log('[BIBLE-DEBUG] renderView reader branch', {
+        activeBook: this.activeBook,
+        currentTranslation: this.currentTranslation,
+        targetScrollChapter: this.targetScrollChapter,
+        targetScrollVerse: this.targetScrollVerse,
+        wrapperFound: !!wrapper
+      });
+      await this.renderBookIntoContainer(this.activeBook, this.currentTranslation, wrapper, this.targetScrollChapter, this.targetScrollVerse, null, null, 0);
       this.targetScrollChapter = null;
       this.targetScrollVerse = null;
     }
