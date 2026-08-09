@@ -673,8 +673,10 @@ class BibleView extends obsidian.ItemView {
   }
 
   async renderBookIntoContainer(book, translation, container, scrollChapter, scrollVerse, highlightChapter, highlightVerse, level) {
+      console.log('[BIBLE-DEBUG] renderBookIntoContainer START', { book, translation, level, scrollChapter, scrollVerse, highlightChapter, highlightVerse, containerExists: !!container });
       container.empty();
       const payload = await this.fetchBookData(translation, book);
+      console.log('[BIBLE-DEBUG] renderBookIntoContainer fetchBookData result', { book, translation, hasPayload: !!payload, payloadIsRTL: payload?.isRTL });
       if (!payload) {
           container.createEl("p", { text: "Could not load book data." });
           return;
