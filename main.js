@@ -737,8 +737,7 @@ class BibleView extends obsidian.ItemView {
 
   closeCrossrefPane(paneLevel) {
       // Close ONLY the pane at the given level (1-based). Leave all other panes
-      // (the ones in front and behind) intact. The X button on a pane closes
-      // that pane alone.
+      // (the ones in front and behind) intact.
       const idx = paneLevel - 1;
       if (idx < 0 || idx >= this.crPanes.length) return;
       const popped = this.crPanes.splice(idx, 1)[0];
@@ -747,12 +746,18 @@ class BibleView extends obsidian.ItemView {
       delete this.bookContexts[popped.level];
   }
 
-  closeCrossrefPanesFrom(level) {
-      // Backwards compatibility for any caller expecting "close this pane and
-      // everything above". Now delegates to closeCrossrefPane per-pane, in
-      // reverse order so indices stay stable.
-      while (this.crPanes.length >= level) {
-          this.closeCrossrefPane(this.crPanes.length);
+  closeCrossrefPaneAndStack(paneLevel) {
+      // Close the pane at the given level AND every pane stacked on top of it
+      // (i.e. everything at higher levels). Panes BELOW this one (lower levels)
+      // stay. So clicking X on the oldest pane closes everything; clicking
+      // X on the top pane closes only itself.
+      // crPanes is 0-indexed; pane at level N lives at index N-1. We pop
+      // from the end so indices of remaining panes stay stable.
+      while (this.crPanes.length >= paneLevel) {
+          const popped = this.crPanes.pop();
+          if (popped.paneWrapper) popped.paneWrapper.remove();
+          if (popped.observer) popped.observer.disconnect();
+          delete this.bookContexts[popped.level];
       }
   }
 
@@ -769,9 +774,9 @@ class BibleView extends obsidian.ItemView {
       const crHeader = paneEl.createDiv({ cls: "crossref-header" });
       const titleGroup = crHeader.createDiv({ cls: "cr-title-group" });
       
-      const closeBtn = titleGroup.createEl("button", { cls: "crossref-close-btn", title: "Close Reference" });
+      const closeBtn = titleGroup.createEl("button", { cls: "crossref-close-btn", title: "Close Reference and Stacked Panes" });
       closeBtn.innerHTML = `✕`;
-      closeBtn.addEventListener("click", () => this.closeCrossrefPane(newLevel));
+      closeBtn.addEventListener("click", () => this.closeCrossrefPaneAndStack(newLevel));
       
       let defaultTrans = (sourceLevel > 0) ? this.crPanes[sourceLevel - 1].translation : this.currentTranslation;
       const titleEl = titleGroup.createEl("div", { cls: "crossref-title", text: `${book} ${chapter} (${defaultTrans})` });
