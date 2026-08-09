@@ -576,10 +576,12 @@ class BibleView extends obsidian.ItemView {
   }
 
   hydrateChapter(chapWrapper, chapData, book, chNum, highlightChapter, highlightVerse, isRTL) {
+    console.log('[BIBLE-DEBUG] hydrateChapter', { book, chNum, highlightChapter, highlightVerse });
     chapWrapper.createEl("h2", { text: `${book} ${chNum}`, cls: "mb-chapter-heading" });
 
     let startHighlight = null, endHighlight = null;
     if (highlightChapter && String(chNum) === String(highlightChapter) && highlightVerse) {
+      console.log('[BIBLE-DEBUG] hydrateChapter HIGHLIGHTING', { chNum, highlightChapter, highlightVerse, willStart: parseInt(String(highlightVerse).includes('-') ? String(highlightVerse).split('-')[0] : highlightVerse, 10) });
       if (String(highlightVerse).includes('-')) {
         const parts = String(highlightVerse).split('-');
         startHighlight = parseInt(parts[0], 10); endHighlight = parseInt(parts[1], 10);
@@ -847,7 +849,7 @@ class BibleView extends obsidian.ItemView {
       returnBtn.addEventListener("click", () => this.scrollToVerse(paneObj.contentEl, paneObj.targetChapter, paneObj.targetVerse, "center", newLevel));
 
       await this.renderBookIntoContainer(book, defaultTrans, contentEl, chapter, verse, chapter, verse, newLevel);
-  }
+    }
 
   showTooltip(marker, container, level) {
       this.cancelHideTooltip();
