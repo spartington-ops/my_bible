@@ -338,10 +338,20 @@ class BibleView extends obsidian.ItemView {
                 const wrapper = this.contentEl.querySelector('.main-bible-wrapper');
                 const center = this.getCenterVerse(wrapper);
                 if (center) {
+                  // Center verse found — use it.
                   this.activeChapter = center.chapter;
                   this.targetScrollChapter = center.chapter;
                   this.targetScrollVerse = center.verse;
                   this.savedCenterVerse = center;
+                } else if (this.savedCenterVerse && this.savedCenterVerse.chapter) {
+                  // Center lookup failed (chapter mid-hydrate, between verses, etc.).
+                  // Fall back to the last known good position so we don't snap to v1.
+                  this.targetScrollChapter = this.savedCenterVerse.chapter;
+                  this.targetScrollVerse = this.savedCenterVerse.verse;
+                } else if (this.activeChapter) {
+                  // Last resort: stay in the current chapter at verse 1.
+                  this.targetScrollChapter = this.activeChapter;
+                  this.targetScrollVerse = null;
                 }
               }
               const state = this.getState();
@@ -713,7 +723,10 @@ class BibleView extends obsidian.ItemView {
   }
 
   closeCrossrefPanesFrom(level) {
-      while (this.crPanes.length >= level) {
+      // Close every pane whose level is STRICTLY GREATER than `level`.
+      // The pane at `level` itself stays (it's the one whose X was clicked).
+      // Pane indices in crPanes are 0-based; pane at level N has crPanes[N-1].
+      while (this.crPanes.length > level) {
           const popped = this.crPanes.pop();
           if (popped.paneWrapper) popped.paneWrapper.remove();
           if (popped.observer) popped.observer.disconnect();
