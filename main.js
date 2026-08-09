@@ -512,12 +512,14 @@ class BibleView extends obsidian.ItemView {
           // If verse not found AND the chapter wrapper is empty AND bookContext exists,
           // force-hydrate this chapter manually. hydrateWindow might have been a no-op
           // (e.g., bookContext[level] missing on this render). This is the safety net.
+          // IMPORTANT: pass through context.highlightChapter/Highlight so we don't wipe
+          // out the cross-ref highlight by hydrating with null values.
           if (!verseEl && chapEl.innerHTML.trim() === "") {
             const context = this.bookContexts[level];
             if (context && context.data && context.data.chapters[chapter]) {
               chapEl.classList.remove('dehydrated');
               chapEl.style.height = 'auto';
-              this.hydrateChapter(chapEl, context.data.chapters[chapter], context.book, parseInt(chapter, 10), null, null, context.isRTL);
+              this.hydrateChapter(chapEl, context.data.chapters[chapter], context.book, parseInt(chapter, 10), context.highlightChapter, context.highlightVerse, context.isRTL);
               chapEl.setAttribute('data-hydrated', 'true');
               verseEl = chapEl.querySelector(`[data-num="${targetNum}"]`);
             }
@@ -576,12 +578,10 @@ class BibleView extends obsidian.ItemView {
   }
 
   hydrateChapter(chapWrapper, chapData, book, chNum, highlightChapter, highlightVerse, isRTL) {
-    console.log('[BIBLE-DEBUG] hydrateChapter', { book, chNum, highlightChapter, highlightVerse });
     chapWrapper.createEl("h2", { text: `${book} ${chNum}`, cls: "mb-chapter-heading" });
 
     let startHighlight = null, endHighlight = null;
     if (highlightChapter && String(chNum) === String(highlightChapter) && highlightVerse) {
-      console.log('[BIBLE-DEBUG] hydrateChapter HIGHLIGHTING', { chNum, highlightChapter, highlightVerse, willStart: parseInt(String(highlightVerse).includes('-') ? String(highlightVerse).split('-')[0] : highlightVerse, 10) });
       if (String(highlightVerse).includes('-')) {
         const parts = String(highlightVerse).split('-');
         startHighlight = parseInt(parts[0], 10); endHighlight = parseInt(parts[1], 10);
