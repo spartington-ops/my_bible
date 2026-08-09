@@ -658,6 +658,11 @@ class BibleView extends obsidian.ItemView {
                   this.activeChapter = activeCh;
                   this.updateHeaderUI();
                   this.updateWindowing(activeCh, readerContainer, level);
+                  // Keep savedCenterVerse fresh as the user scrolls. Without this,
+                  // it only updates on state save/load, which means translation
+                  // switch always fell back to the LAST SAVE position (often v1).
+                  const center = this.getCenterVerse(readerContainer);
+                  if (center) this.savedCenterVerse = center;
               } else {
                   const paneObj = this.crPanes[level - 1];
                   if (paneObj && paneObj.titleEl) {
@@ -722,15 +727,24 @@ class BibleView extends obsidian.ItemView {
       resizerEl.addEventListener("touchstart", (e) => { onStart(e); activeDoc.addEventListener("touchmove", onMove, { passive: false }); activeDoc.addEventListener("touchend", onEnd); }, { passive: false });
   }
 
+  closeCrossrefPane(paneLevel) {
+      // Close ONLY the pane at the given level (1-based). Leave all other panes
+      // (the ones in front and behind) intact. The X button on a pane closes
+      // that pane alone.
+      const idx = paneLevel - 1;
+      if (idx < 0 || idx >= this.crPanes.length) return;
+      const popped = this.crPanes.splice(idx, 1)[0];
+      if (popped.paneWrapper) popped.paneWrapper.remove();
+      if (popped.observer) popped.observer.disconnect();
+      delete this.bookContexts[popped.level];
+  }
+
   closeCrossrefPanesFrom(level) {
-      // Close every pane whose level is STRICTLY GREATER than `level`.
-      // The pane at `level` itself stays (it's the one whose X was clicked).
-      // Pane indices in crPanes are 0-based; pane at level N has crPanes[N-1].
-      while (this.crPanes.length > level) {
-          const popped = this.crPanes.pop();
-          if (popped.paneWrapper) popped.paneWrapper.remove();
-          if (popped.observer) popped.observer.disconnect();
-          delete this.bookContexts[popped.level];
+      // Backwards compatibility for any caller expecting "close this pane and
+      // everything above". Now delegates to closeCrossrefPane per-pane, in
+      // reverse order so indices stay stable.
+      while (this.crPanes.length >= level) {
+          this.closeCrossrefPane(this.crPanes.length);
       }
   }
 
@@ -749,7 +763,7 @@ class BibleView extends obsidian.ItemView {
       
       const closeBtn = titleGroup.createEl("button", { cls: "crossref-close-btn", title: "Close Reference" });
       closeBtn.innerHTML = `✕`;
-      closeBtn.addEventListener("click", () => this.closeCrossrefPanesFrom(newLevel));
+      closeBtn.addEventListener("click", () => this.closeCrossrefPane(newLevel));
       
       let defaultTrans = (sourceLevel > 0) ? this.crPanes[sourceLevel - 1].translation : this.currentTranslation;
       const titleEl = titleGroup.createEl("div", { cls: "crossref-title", text: `${book} ${chapter} (${defaultTrans})` });
