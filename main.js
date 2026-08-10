@@ -25,10 +25,10 @@ const BOOK_ALIASES = {
   "ruth": "Ruth", "rth": "Ruth", "ru": "Ruth",
   "1 sam": "1 Samuel", "1 sm": "1 Samuel", "1 sa": "1 Samuel", "1 s": "1 Samuel", "i sam": "1 Samuel", "1sam": "1 Samuel",
   "2 sam": "2 Samuel", "2 sm": "2 Samuel", "2 sa": "2 Samuel", "2 s": "2 Samuel", "ii sam": "2 Samuel", "2sam": "2 Samuel",
-  "1 kings": "1 Kings", "1 kgs": "1 Kings", "1 ki": "1 Kings", "1kgs": "1 Kings", "i kings": "1 Kings",
-  "2 kings": "2 Kings", "2 kgs": "2 Kings", "2 ki": "2 Kings", "2kgs": "2 Kings", "ii kings": "2 Kings",
-  "1 chron": "1 Chronicles", "1 chr": "1 Chronicles", "1 ch": "1 Chronicles", "1chron": "1 Chronicles", "i chronicles": "1 Chronicles",
-  "2 chron": "2 Chronicles", "2 chr": "2 Chronicles", "2 ch": "2 Chronicles", "2chron": "2 Chronicles", "ii chronicles": "2 Chronicles",
+  "1 kings": "1 Kings", "1 kgs": "1 Kings", "1 ki": "1 Kings", "1kgs": "1 Kings", "1ki": "1 Kings", "i kings": "1 Kings",
+  "2 kings": "2 Kings", "2 kgs": "2 Kings", "2 ki": "2 Kings", "2kgs": "2 Kings", "2ki": "2 Kings", "ii kings": "2 Kings",
+  "1 chron": "1 Chronicles", "1 chr": "1 Chronicles", "1 ch": "1 Chronicles", "1chron": "1 Chronicles", "1chr": "1 Chronicles", "1ch": "1 Chronicles", "i chronicles": "1 Chronicles",
+  "2 chron": "2 Chronicles", "2 chr": "2 Chronicles", "2 ch": "2 Chronicles", "2chron": "2 Chronicles", "2chr": "2 Chronicles", "2ch": "2 Chronicles", "ii chronicles": "2 Chronicles",
   "ezra": "Ezra", "ezr": "Ezra", "nehemiah": "Nehemiah", "neh": "Nehemiah", "esther": "Esther", "est": "Esther",
   "job": "Job", "jb": "Job", "psalms": "Psalms", "ps": "Psalms", "psalm": "Psalms", "psa": "Psalms",
   "proverbs": "Proverbs", "prov": "Proverbs", "prv": "Proverbs", "ecclesiastes": "Ecclesiastes", "ecc": "Ecclesiastes", "qoh": "Ecclesiastes",
@@ -42,32 +42,45 @@ const BOOK_ALIASES = {
   "matthew": "Matthew", "matt": "Matthew", "mt": "Matthew", "mark": "Mark", "mrk": "Mark", "mk": "Mark",
   "luke": "Luke", "luk": "Luke", "lk": "Luke", "john": "John", "joh": "John", "jn": "John",
   "acts": "Acts", "act": "Acts", "ac": "Acts", "romans": "Romans", "rom": "Romans", "ro": "Romans",
-  "1 corinthians": "1 Corinthians", "1 cor": "1 Corinthians", "1cor": "1 Corinthians",
-  "2 corinthians": "2 Corinthians", "2 cor": "2 Corinthians", "2cor": "2 Corinthians",
+  "1 corinthians": "1 Corinthians", "1 cor": "1 Corinthians", "1cor": "1 Corinthians", "1co": "1 Corinthians",
+  "2 corinthians": "2 Corinthians", "2 cor": "2 Corinthians", "2cor": "2 Corinthians", "2co": "2 Corinthians",
   "galatians": "Galatians", "gal": "Galatians", "ephesians": "Ephesians", "eph": "Ephesians",
   "philippians": "Philippians", "phil": "Philippians", "php": "Philippians", "colossians": "Colossians", "col": "Colossians",
-  "1 thessalonians": "1 Thessalonians", "1 thess": "1 Thessalonians", "1thess": "1 Thessalonians",
-  "2 thessalonians": "2 Thessalonians", "2 thess": "2 Thessalonians", "2thess": "2 Thessalonians",
-  "1 timothy": "1 Timothy", "1 tim": "1 Timothy", "1tim": "1 Timothy",
-  "2 timothy": "2 Timothy", "2 tim": "2 Timothy", "2tim": "2 Timothy",
+  "1 thessalonians": "1 Thessalonians", "1 thess": "1 Thessalonians", "1thess": "1 Thessalonians", "1th": "1 Thessalonians",
+  "2 thessalonians": "2 Thessalonians", "2 thess": "2 Thessalonians", "2thess": "2 Thessalonians", "2th": "2 Thessalonians",
+  "1 timothy": "1 Timothy", "1 tim": "1 Timothy", "1tim": "1 Timothy", "1ti": "1 Timothy",
+  "2 timothy": "2 Timothy", "2 tim": "2 Timothy", "2tim": "2 Timothy", "2ti": "2 Timothy",
   "titus": "Titus", "tit": "Titus", "philemon": "Philemon", "phm": "Philemon",
   "hebrews": "Hebrews", "heb": "Hebrews", "james": "James", "jas": "James",
-  "1 peter": "1 Peter", "1 pet": "1 Peter", "1peter": "1 Peter",
-  "2 peter": "2 Peter", "2 pet": "2 Peter", "2peter": "2 Peter",
-  "1 john": "1 John", "1 jn": "1 John", "1john": "1 John",
-  "2 john": "2 John", "2 jn": "2 John", "2john": "2 John",
-  "3 john": "3 John", "3 jn": "3 John", "3john": "3 John",
+  "1 peter": "1 Peter", "1 pet": "1 Peter", "1peter": "1 Peter", "1pet": "1 Peter", "1pe": "1 Peter",
+  "2 peter": "2 Peter", "2 pet": "2 Peter", "2peter": "2 Peter", "2pet": "2 Peter", "2pe": "2 Peter",
+  "1 john": "1 John", "1 jn": "1 John", "1john": "1 John", "1jn": "1 John",
+  "2 john": "2 John", "2 jn": "2 John", "2john": "2 John", "2jn": "2 John",
+  "3 john": "3 John", "3 jn": "3 John", "3john": "3 John", "3jn": "3 John",
   "jude": "Jude", "revelation": "Revelation", "rev": "Revelation"
 };
 
 // Sort by length so longer aliases match first ("1 sam" before "1 s")
 const SORTED_ALIASES = Object.keys(BOOK_ALIASES).sort((a, b) => b.length - a.length);
 
-// Escape regex-special characters in alias strings, then allow flexible whitespace.
-// Wrapping the whole pattern in non-capturing groups prevents accidental capture
-// group leaks if an alias ever contains parentheses.
+// For each alias, build a regex that accepts:
+//   - Original form ("1 ki" → "1\s+ki")
+//   - No-space form ("1ki" → "1ki")
+//   - Period variations ("1 ki." / "1. ki" / "1.ki." / "1ki.")
+// The outer alternation picks whichever form the input has.
+// Final outer alternation still allows optional trailing period and whitespace.
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const BOOK_PATTERN = SORTED_ALIASES.map(b => escapeRegex(b).replace(/\s+/g, '\\s+')).join('|');
+const BOOK_PATTERN = SORTED_ALIASES.map(alias => {
+  // Build per-alias alternations:
+  // 1. exact alias with all its internal whitespace (escape special chars first)
+  const exact = escapeRegex(alias).replace(/\s+/g, '\\s+');
+  // 2. alias with all internal whitespace stripped (no-space variant)
+  const compact = escapeRegex(alias.replace(/\s+/g, ''));
+  // 3. alias with periods after each token ("1. ki" / "1 ki." / "1.ki.")
+  // Tokenize on whitespace, allow optional period after each token
+  const periodVariant = alias.split(/\s+/).map(t => escapeRegex(t) + '\\.?').join('\\s*');
+  return `(?:${exact}|${compact}|${periodVariant})`;
+}).join('|');
 
 // Pre-built regex for parseFnMarkdown. Built once at module load (was being rebuilt
 // on every footnote tooltip render — small perf win, mostly cleaner code).
