@@ -37,7 +37,7 @@ const BOOK_ALIASES = {
   "ezekiel": "Ezekiel", "ezek": "Ezekiel", "daniel": "Daniel", "dan": "Daniel", "hosea": "Hosea", "hos": "Hosea",
   "joel": "Joel", "jl": "Joel", "amos": "Amos", "am": "Amos", "obadiah": "Obadiah", "obad": "Obadiah",
   "jonah": "Jonah", "jnh": "Jonah", "micah": "Micah", "mic": "Micah", "nahum": "Nahum", "nah": "Nahum",
-  "habakkuk": "Habakkuk", "hab": "Habakkuk", "zephaniah": "Zephaniah", "zeph": "Zephaniah", "haggai": "Haggai", "hag": "Haggai",
+  "habakkuk": "Habakkuk", "hab": "Habakkuk", "zephaniah": "Zephaniah", "zeph": "Zephaniah", "zep": "Zephaniah", "haggai": "Haggai", "hag": "Haggai",
   "zechariah": "Zechariah", "zech": "Zechariah", "malachi": "Malachi", "mal": "Malachi",
   "matthew": "Matthew", "matt": "Matthew", "mt": "Matthew", "mark": "Mark", "mrk": "Mark", "mk": "Mark",
   "luke": "Luke", "luk": "Luke", "lk": "Luke", "john": "John", "joh": "John", "jn": "John",
