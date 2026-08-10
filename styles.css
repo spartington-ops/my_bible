@@ -304,9 +304,15 @@
 }
 
 /* Typography & Layout Rules */
-[data-type="bible-view"] .reader-container { 
+[data-type="bible-view"] .reader-container {
   line-height: 1.65;
   font-size: 1.05rem;
+  /* Override Obsidian's default justify on text content. The .highlight-target
+     background extends to the inline span's full content width, so if the parent
+     uses text-align: justify, the highlighted span covers the stretched spaces
+     all the way to the right margin. Use left-align so the highlight hugs the
+     actual text. */
+  text-align: left;
 }
 
 /* Fixed iPad / Mobile Font Sizing Adjustments */
