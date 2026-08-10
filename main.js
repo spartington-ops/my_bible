@@ -666,21 +666,12 @@ class BibleView extends obsidian.ItemView {
         const blockEl = chapWrapper.createEl(isParagraphMode ? "p" : "div", { cls: isParagraphMode ? "mb-prose-paragraph" : "mb-verse-line" });
 
         block.verses.forEach(vObj => {
-          const isHighlighted = startHighlight !== null && vObj.number >= startHighlight && vObj.number <= endHighlight;
           const verseEl = blockEl.createSpan({ cls: "verse", attr: { 'data-num': vObj.number } });
-          if (isHighlighted) verseEl.classList.add("highlight-target");
+          if (startHighlight !== null && vObj.number >= startHighlight && vObj.number <= endHighlight) verseEl.classList.add("highlight-target");
           if (isVerseSelected(vObj.number)) verseEl.classList.add("active-verse");
 
           verseEl.createEl("sup", { text: vObj.number.toString(), cls: "vnum" });
-          const formattedText = this.formatFootnotesAndMarkdown(vObj.text, chapData, book, chNum).trim();
-          if (isHighlighted) {
-            // Split into per-word inline spans so the highlight background paints
-            // only behind the word glyphs. Whitespace stays as raw text nodes so
-            // the spaces between words are NOT covered by the highlight.
-            this.appendVerseAsWordSpans(verseEl, formattedText);
-          } else {
-            verseEl.createSpan({ cls: "vtext" }).innerHTML = formattedText;
-          }
+          verseEl.createSpan({ cls: "vtext" }).innerHTML = this.formatFootnotesAndMarkdown(vObj.text, chapData, book, chNum).trim();
           verseEl.createSpan({ cls: "vspace", text: " " });
 
           if (!isParagraphMode) blockEl.createEl("br");
@@ -688,51 +679,6 @@ class BibleView extends obsidian.ItemView {
         });
       }
     });
-  }
-
-  // Render HTML into `parent` as a sequence of word spans (each word glyph
-  // gets its own inline span with the .vtext-word class) and bare text nodes
-  // for whitespace. The parent span's background-color paints only behind the
-  // word spans, not the spaces between, so the highlight hugs the text.
-  appendVerseAsWordSpans(parent, html) {
-    const tmp = document.createElement("template");
-    tmp.innerHTML = html;
-    this._appendWordSpansRecursive(parent, tmp.content);
-  }
-
-  _appendWordSpansRecursive(parent, fragment) {
-    for (const node of Array.from(fragment.childNodes)) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        this._appendWordText(parent, node.nodeValue);
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        // Keep nested elements (e.g. <i>, <sup> for footnote markers) as-is;
-        // just split their inner text into word spans.
-        const wrapper = document.createElement(node.tagName);
-        for (const attr of node.attributes) wrapper.setAttribute(attr.name, attr.value);
-        parent.appendChild(wrapper);
-        if (node.childNodes.length > 0) {
-          this._appendWordSpansRecursive(wrapper, node);
-        }
-      }
-    }
-  }
-
-  _appendWordText(parent, text) {
-    // Split on whitespace. Each non-whitespace run becomes a .vtext-word span.
-    // Whitespace runs stay as raw text nodes (not spans), so the parent's
-    // background-color does not cover them.
-    const parts = text.split(/(\s+)/);
-    for (const part of parts) {
-      if (!part) continue;
-      if (/^\s+$/.test(part)) {
-        parent.appendChild(document.createTextNode(part));
-      } else {
-        const span = document.createElement("span");
-        span.className = "vtext-word";
-        span.textContent = part;
-        parent.appendChild(span);
-      }
-    }
   }
 
   updateWindowing(activeChStr, container, level) {

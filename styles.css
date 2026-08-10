@@ -57,24 +57,25 @@
 
 /* Target Verse Permanent Highlight when navigating via Cross-Reference */
 .highlight-target {
-  /* No background on the parent — the highlight is on each .vtext-word
-     child span instead. This way the highlight hugs only the word glyphs,
-     not the spaces between them. */
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-.vtext-word {
+  /* Background covers the whole verse span including spaces (so it forms a
+     continuous highlight through the verse text). */
   background-color: rgba(255, 220, 0, 0.18);
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.35);
-  /* Box-decoration-break: clone ensures each wrapped line of the word gets
-     its own background rounding (looks neat on multi-line). */
+  border-radius: 4px;
+  /* Box-decoration-break: clone makes each wrapped line of the inline span
+     get its own copy of the background. This means the highlight appears
+     as a line-by-line box, automatically cut at each line break, instead
+     of a single continuous box around the entire wrapped verse. */
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+  /* No padding — keep highlight flush with the text. */
+  box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.35);
+  transition: background-color 0.2s ease;
 }
-.highlight-target .vtext {
+.highlight-target .vtext,
+.highlight-target .vtext-word {
   background-color: transparent;
   border-radius: 0;
+  box-shadow: none;
 }
 
 /* Layout Wrappers */
