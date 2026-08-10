@@ -646,7 +646,13 @@ class BibleView extends obsidian.ItemView {
 
           if (isParagraphMode) {
             const lineSpan = verseEl.createSpan({ cls: `vtext ${lineObj.indent > 0 ? "mb-poetic-indent" : "mb-poetic-line"}` });
-            if (lineObj.indent > 0) lineSpan.style[isRTL ? 'paddingRight' : 'paddingLeft'] = `${lineObj.indent * 1.5}em`;
+            if (lineObj.indent > 0) {
+              // Use margin-left (not padding-left) so the indent space lives OUTSIDE
+              // the inline-block's box. When this line is inside a highlighted verse,
+              // the verse span's background covers the inline-block but NOT its
+              // margin, so the indent space is NOT highlighted.
+              lineSpan.style[isRTL ? 'marginRight' : 'marginLeft'] = `${lineObj.indent * 1.5}em`;
+            }
             lineSpan.innerHTML = formattedText.trim();
             verseEl.createSpan({ cls: "vspace", text: " " });
             blockEl.createEl("br");

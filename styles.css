@@ -353,7 +353,10 @@
 
 .mb-poetic-indent {
   display: inline-block;
-  margin-left: 1.5em;
+  /* margin-left is set inline per-line (see main.js) so it varies by indent level.
+     Using margin (not padding) puts the indent space OUTSIDE the inline-block's
+     box, so when the parent verse is highlighted, the indent space is NOT
+     highlighted. */
 }
 
 /* Verse-by-Verse Mode */
