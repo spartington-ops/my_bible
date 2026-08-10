@@ -442,22 +442,36 @@ class BibleView extends obsidian.ItemView {
               currentBook = BOOK_ALIASES[aliasKey] || currentBook;
               isNewBook = true;
           }
-          
+
+          // The FN_NUM_REGEX pattern allows num1 to match either a single number
+          // (e.g. "8") OR a chapter:verse pair (e.g. "8:28"). num2 is only set when
+          // the regex captured an explicit "8:28" form. But the regex also captures
+          // bare "8:28" in num1 when no colon follows. So we may need to split num1
+          // here to recover chapter + verse when the input was actually "Book N:M".
+          let effectiveNum1 = num1;
+          let effectiveNum2 = num2;
+          if (num1 && num1.includes(':') && !num2) {
+              const parts = num1.split(':');
+              effectiveNum1 = parts[0];
+              effectiveNum2 = parts[1];
+          }
+
           let targetChapter, targetVerse;
           if (chStr) {
-              targetChapter = num1; currentChapter = targetChapter; if (num2) targetVerse = num2;
+              targetChapter = effectiveNum1; currentChapter = targetChapter;
+              if (effectiveNum2) targetVerse = effectiveNum2;
           } else if (verStr) {
-              targetChapter = currentChapter; targetVerse = num1;
-          } else if (num2) {
-              targetChapter = num1; currentChapter = targetChapter; targetVerse = num2;
+              targetChapter = currentChapter; targetVerse = effectiveNum1;
+          } else if (effectiveNum2) {
+              targetChapter = effectiveNum1; currentChapter = targetChapter; targetVerse = effectiveNum2;
           } else {
               if (isNewBook || (sep && sep.includes(';'))) {
-                  targetChapter = num1; currentChapter = targetChapter;
+                  targetChapter = effectiveNum1; currentChapter = targetChapter;
               } else {
-                  targetChapter = currentChapter; targetVerse = num1;
+                  targetChapter = currentChapter; targetVerse = effectiveNum1;
               }
           }
-          
+
           let sepStr = sep || '';
           let refStr = match.substring(sepStr.length);
           if (currentBook && targetChapter) {
