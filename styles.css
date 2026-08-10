@@ -57,17 +57,23 @@
 
 /* Target Verse Permanent Highlight when navigating via Cross-Reference */
 .highlight-target {
-  background-color: rgba(255, 220, 0, 0.18);
+  /* No background on the parent — the highlight is on each .vtext-word
+     child span instead. This way the highlight hugs only the word glyphs,
+     not the spaces between them. */
   border-radius: 4px;
-  /* Only vertical padding. No horizontal padding — horizontal padding would
-     extend the background into the indent whitespace before indented poetic
-     lines, making the indent itself appear highlighted. */
-  padding: 2px 0;
-  box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.35);
   transition: background-color 0.2s ease;
 }
+.vtext-word {
+  background-color: rgba(255, 220, 0, 0.18);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.35);
+  /* Box-decoration-break: clone ensures each wrapped line of the word gets
+     its own background rounding (looks neat on multi-line). */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
 .highlight-target .vtext {
-  background-color: transparent; /* The .highlight-target wrapper handles the bg */
+  background-color: transparent;
   border-radius: 0;
 }
 
