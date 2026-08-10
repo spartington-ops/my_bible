@@ -74,11 +74,14 @@ const BOOK_PATTERN = SORTED_ALIASES.map(b => escapeRegex(b).replace(/\s+/g, '\\s
 const FN_BOOK_REGEX = `\\b(?:${BOOK_PATTERN})\\.?\\s+`;
 const FN_CH_REGEX = `\\b(?:ch|chapter)s?\\.?\\s+`;
 const FN_VER_REGEX = `\\b(?:v|ver|verse)s?\\.?\\s+`;
-const FN_NUM_REGEX = `\\d+(?:-\\d+)?(?::\\d+(?:-\\d+)?)?`;
+// Verse ranges in real Bible JSON use en-dash (–, U+2013), not hyphen-min (-, U+002D).
+// Original regex only matched hyphen, so footnote text like "see Rom. 8:28; cf. Eph. 1:11"
+// with en-dash ranges silently failed. Use a char class to accept both.
+const FN_NUM_REGEX = `\\d+(?:[-–]\\d+)?(?::\\d+(?:[-–]\\d+)?)?`;
 const FN_SEP_REGEX = `\\s*(?:[,;]|\\band\\b|\\balso\\s+see\\b|\\bsee\\b|\\bcf\\.?\\b)\\s*`;
-const FN_START_REGEX = `(?:(?:${FN_BOOK_REGEX}|${FN_CH_REGEX}|${FN_VER_REGEX})${FN_NUM_REGEX}|\\b\\d+(?:-\\d+)?:\\d+(?:-\\d+)?)`;
+const FN_START_REGEX = `(?:(?:${FN_BOOK_REGEX}|${FN_CH_REGEX}|${FN_VER_REGEX})${FN_NUM_REGEX}|\\b\\d+(?:[-–]\\d+)?:\\d+(?:[-–]\\d+)?)`;
 const FN_FULL_BLOCK_REGEX = new RegExp(`(${FN_START_REGEX})(?:(?:${FN_SEP_REGEX})(?:(?:${FN_BOOK_REGEX}|${FN_CH_REGEX}|${FN_VER_REGEX})?${FN_NUM_REGEX}))*`, 'gi');
-const FN_PART_REGEX = new RegExp(`(${FN_SEP_REGEX})?(?:(${FN_BOOK_REGEX})|(${FN_CH_REGEX})|(${FN_VER_REGEX}))?(\\d+(?:-\\d+)?)(?::(\\d+(?:-\\d+)?))?`, 'gi');
+const FN_PART_REGEX = new RegExp(`(${FN_SEP_REGEX})?(?:(${FN_BOOK_REGEX})|(${FN_CH_REGEX})|(${FN_VER_REGEX}))?(\\d+(?:[-–]\\d+)?)(?::(\\d+(?:[-–]\\d+)?))?`, 'gi');
 
 const DEFAULT_SETTINGS = {
   bibleVersion: "ESV",
@@ -490,10 +493,7 @@ class BibleView extends obsidian.ItemView {
     } : null;
   }
 
-  /* Universal scrolling utility that forces windowing hydration BEFORE positioning.
-   Places the verse at the visual center of the wrapper, accounting for any
-   pane covering part of the reader. This is symmetric (works for 1-line or
-   multi-line verses alike) and stable across reflow / font changes. */
+  /* Universal scrolling utility that forces windowing hydration BEFORE positioning */
   scrollToVerse(container, chapter, verse, align = "center", level = 0) {
     if (!container || !chapter) return;
 
@@ -529,113 +529,19 @@ class BibleView extends obsidian.ItemView {
           }
 
           if (verseEl) {
-            this.centerVerseInContainer(container, verseEl, align);
+            // If the chapter wrapper is empty (just-hydrated), wait one more frame
+            // so the verse element has actual layout before scrollIntoView measures it.
+            if (chapEl.classList.contains("dehydrated") || chapEl.innerHTML.trim() === "") {
+              requestAnimationFrame(() => verseEl.scrollIntoView({ behavior: "instant", block: align }));
+            } else {
+              verseEl.scrollIntoView({ behavior: "instant", block: align });
+            }
             return;
           }
         }
-        // Fallback: chapter-only scroll, verse not found
-        this.centerVerseInContainer(container, chapEl, "start");
+        chapEl.scrollIntoView({ behavior: "instant", block: "start" });
       });
     });
-  }
-
-  // Place `targetEl` at the visual center of the wrapper, accounting for any
-  // pane covering part of the reader. Uses scrollTo on the actual scroll
-  // container (which is the .main-bible-wrapper, NOT readerContainer — the
-  // readerContainer is just an inner div with overflow:visible).
-  centerVerseInContainer(container, targetEl, align = "center") {
-    // Find the actual scrollable ancestor. container might be the wrapper
-    // itself, OR it might be readerContainer (an inner div with overflow:visible
-    // that doesn't actually scroll — we need to walk up).
-    let scrollEl = container;
-    if (getComputedStyle(scrollEl).overflowY === "visible" || scrollEl.scrollHeight <= scrollEl.clientHeight + 1) {
-      let parent = scrollEl.parentElement;
-      while (parent && (getComputedStyle(parent).overflowY === "visible" || parent.scrollHeight <= parent.clientHeight + 1)) {
-        parent = parent.parentElement;
-      }
-      if (parent) scrollEl = parent;
-    }
-
-    // Wait one more frame so layout is final (esp. just after hydration).
-    requestAnimationFrame(() => {
-      const scrollRect = scrollEl.getBoundingClientRect();
-      const targetRect = targetEl.getBoundingClientRect();
-      if (scrollRect.height === 0 || targetRect.height === 0) return;
-
-      // Find any cross-ref pane that overlaps the scroll container so we don't
-      // center the verse under a hidden pane. For level-0 reader, look at
-      // all sibling .mb-pane-wrapper elements stacked in front.
-      let occluderHeight = 0;
-      const bibleView = scrollEl.closest('[data-type="bible-view"]') || scrollEl.closest('.bible-view');
-      if (bibleView) {
-        const panes = bibleView.querySelectorAll('.mb-pane-wrapper') || [];
-        panes.forEach(p => {
-          const r = p.getBoundingClientRect();
-          if (r.left < scrollRect.right && r.right > scrollRect.left) {
-            occluderHeight += Math.max(0, scrollRect.bottom - r.top);
-          }
-        });
-      }
-
-      const visibleTop = scrollRect.top;
-      const visibleBottom = scrollRect.bottom - occluderHeight;
-      const visibleCenter = (visibleTop + visibleBottom) / 2;
-      const targetCenter = (targetRect.top + targetRect.bottom) / 2;
-
-      let delta;
-      if (align === "start") {
-        delta = targetRect.top - visibleTop - 24;
-      } else {
-        delta = targetCenter - visibleCenter;
-      }
-
-      const newScrollTop = scrollEl.scrollTop + delta;
-      scrollEl.scrollTo({ top: Math.max(0, newScrollTop), behavior: "instant" });
-
-      // Remember this as the centered target so resize can re-center it.
-      const verseNum = targetEl.getAttribute("data-num") || "";
-      const chapter = targetEl.closest('.mb-chapter-wrapper')?.getAttribute("data-chapter") || "";
-      scrollEl.dataset.centeredVerseKey = verseNum;
-      scrollEl.dataset.centeredChapter = chapter;
-      // Also store on the wrapper so we can find it from anywhere
-      const wrapper = bibleView?.querySelector('.main-bible-wrapper[data-level="0"]') || scrollEl.closest('.main-bible-wrapper');
-      if (wrapper && wrapper !== scrollEl) {
-        wrapper.dataset.centeredVerseKey = verseNum;
-        wrapper.dataset.centeredChapter = chapter;
-      }
-    });
-  }
-
-  // Set up a resize observer on the container so when the iPad (or any browser)
-  // changes the pane width, we re-center on the currently-centered verse. Without
-  // this, text reflow causes the verse to drift off-center.
-  installResizeLock(container, level) {
-    if (!container) return;
-    const scrollEl = this._findScrollContainer(container);
-    if (!scrollEl || scrollEl.dataset.resizeLockInstalled === "true") return;
-    scrollEl.dataset.resizeLockInstalled = "true";
-    const ro = new ResizeObserver(() => {
-      const verseNum = scrollEl.dataset.centeredVerseKey;
-      const chapter = scrollEl.dataset.centeredChapter;
-      if (!verseNum || !chapter) return;
-      const chapEl = scrollEl.querySelector(`[data-chapter="${chapter}"]`);
-      const verseEl = chapEl && chapEl.querySelector(`[data-num="${verseNum}"]`);
-      if (verseEl) this.centerVerseInContainer(scrollEl, verseEl, "center");
-    });
-    ro.observe(scrollEl);
-    if (!this._resizeObservers) this._resizeObservers = [];
-    this._resizeObservers.push(ro);
-  }
-
-  // Find the actual scrollable container for a given reader container.
-  _findScrollContainer(container) {
-    let el = container;
-    while (el) {
-      const style = getComputedStyle(el);
-      if ((style.overflowY === "auto" || style.overflowY === "scroll") && el.scrollHeight > el.clientHeight) return el;
-      el = el.parentElement;
-    }
-    return container;
   }
 
   // Hydrate (only) chapters within ±2 of `activeChStr`. Does NOT dehydrate
@@ -679,8 +585,9 @@ class BibleView extends obsidian.ItemView {
 
     let startHighlight = null, endHighlight = null;
     if (highlightChapter && String(chNum) === String(highlightChapter) && highlightVerse) {
-      if (String(highlightVerse).includes('-')) {
-        const parts = String(highlightVerse).split('-');
+      // Match both hyphen-min and en-dash in verse ranges (real data uses en-dash).
+      if (/[-–]/.test(String(highlightVerse))) {
+        const parts = String(highlightVerse).split(/[-–]/);
         startHighlight = parseInt(parts[0], 10); endHighlight = parseInt(parts[1], 10);
       } else {
         startHighlight = parseInt(highlightVerse, 10); endHighlight = startHighlight;
@@ -829,9 +736,6 @@ class BibleView extends obsidian.ItemView {
       });
 
       this.setupTooltipDelegation(container, level);
-      // Lock the centered verse on resize so iPad/desktop layout shifts don't
-      // make the verse drift off-center when the user resizes the pane.
-      this.installResizeLock(container, level);
       const targetCh = scrollChapter || "1";
 
       this.scrollToVerse(readerContainer, targetCh, scrollVerse, "center", level);
