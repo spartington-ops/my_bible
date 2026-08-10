@@ -313,8 +313,11 @@
      background extends to the inline span's full content width, so if the parent
      uses text-align: justify, the highlighted span covers the stretched spaces
      all the way to the right margin. Use left-align so the highlight hugs the
-     actual text. */
-  text-align: left;
+     actual text. !important ensures this wins over any theme rule. */
+  text-align: left !important;
+}
+[data-type="bible-view"] .reader-container * {
+  text-align: left !important;
 }
 
 /* Fixed iPad / Mobile Font Sizing Adjustments */
